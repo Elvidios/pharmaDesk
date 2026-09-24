@@ -1,0 +1,21 @@
+# Entornos virtuales
+env/
+venv/
+
+# Archivos compilados de Python
+__pycache__/
+*.pyc
+
+# Archivos locales de Django
+db.sqlite3
+media/
+static/
+
+# Variables de entorno y secretos (¡CRÍTICO!)
+.env
+
+# Archivos de VS Code y SO
+.vscode/
+.DS_Store
+*.swp
+env/
