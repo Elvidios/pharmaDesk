@@ -15,7 +15,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from cotizador.views import inicio
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', inicio, name='inicio'), # Esta línea conecta tu página principal
 ]

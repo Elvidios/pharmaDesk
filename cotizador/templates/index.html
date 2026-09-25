@@ -1,0 +1,110 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | PharmaCare Admin</title>
+    <link rel="stylesheet" href="{% static 'styles.css' %}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Barra Lateral -->
+        <aside class="sidebar">
+            <div class="logo">Pharmacare</span></div>
+            <nav class="menu">
+                <a href="#" class="active">Panel Principal</a>
+                <a href="#">Cotizaciones (2)</a>
+                <a href="#">Historial Aprobadas</a>
+                <a href="#">Actualizar Tarifario</a>
+            </nav>
+        </aside>
+
+        <!-- Contenido Principal -->
+        <main class="main-content">
+            <header class="topbar">
+                <div class="search-bar">
+                    <input type="text" placeholder="🔍 Buscar por RUT o Empresa...">
+                </div>
+                <div class="user-info">
+                    Admin  | <a href="#">Cerrar Sesión</a>
+                </div>
+            </header>
+
+            <section class="content">
+                <div class="action-header">
+                    <h2>Validación de Cotizaciones (En Cola)</h2>
+                    <div class="bulk-actions">
+                        <button id="btn-approve" class="btn btn-success" disabled>Aprobar Seleccionadas</button>
+                        <button id="btn-reject" class="btn btn-danger" disabled>Rechazar</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAll"></th>
+                                <th>ID</th>
+                                <th>Cliente (RUT)</th>
+                                <th>Categoría</th>
+                                <th>Servicio Solicitado</th>
+                                <th>Valor Estimado</th>
+                                <th>Documentos</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><input type="checkbox" class="row-checkbox"></td>
+                                <td>#001</td>
+                                <td>Laboratorio X (76.123.456-K)</td>
+                                <td>Cosmético</td>
+                                <td>Registro Sanitario</td>
+                                <td><strong>15.5 UF</strong></td>
+                                <td>form_req.pdf</td>
+                                <td><button class="btn-preview" onclick="openPreview('001', 'Laboratorio X', 'Registro Sanitario', '15.5 UF')">Vista Previa</button></td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox" class="row-checkbox"></td>
+                                <td>#002</td>
+                                <td>Importadora Y (77.987.654-3)</td>
+                                <td>Disp. Médico</td>
+                                <td>Certificado Libre Venta</td>
+                                <td><strong>8.0 UF</strong></td>
+                                <td>specs.pdf</td>
+                                <td><button class="btn-preview" onclick="openPreview('002', 'Importadora Y', 'Certificado Libre Venta', '8.0 UF')">Vista Previa</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Panel Lateral Deslizante (Vista Previa) -->
+    <div id="previewModal" class="modal-overlay">
+        <div class="modal-slide">
+            <div class="modal-header">
+                <h3>Detalles de Solicitud #<span id="modalId"></span></h3>
+                <button class="btn-close" onclick="closePreview()">✖</button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Cliente:</strong> <span id="modalClient"></span></p>
+                <p><strong>Trámite:</strong> <span id="modalService"></span></p>
+                <p><strong>Valor Base:</strong> <span id="modalValue"></span></p>
+                
+                <div class="document-preview-area">
+                    <p class="preview-placeholder">Área de visualización del documento (PDF/Imagen)...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" onclick="closePreview()">Aprobar Individual</button>
+                <button class="btn btn-warning">Solicitar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'script.js' %}"></script>
+</body>
+</html>
