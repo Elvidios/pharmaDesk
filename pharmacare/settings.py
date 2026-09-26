@@ -55,7 +55,8 @@ ROOT_URLCONF = 'pharmacare.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # BASE_DIR se encarga de encontrar la ruta exacta sin importar dónde esté el proyecto
+        'DIRS': [BASE_DIR / 'cotizador' / 'templates'], 
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

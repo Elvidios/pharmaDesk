@@ -15,10 +15,20 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from cotizador.views import whatsapp_webhook 
+from django.conf import settings
+from django.conf.urls.static import static
+
+# 1. Asegúrate de importar la función 'home' además del webhook
+from cotizador.views import whatsapp_webhook, home 
 
 urlpatterns = [
+    # 2. Esta es la línea clave que evita el error "Not Found: /"
+    path('', home, name='home'), 
+    
     path('admin/', admin.site.urls),
-    # Esta es la ruta exacta a la que le está apuntando tu simulador
-    path('api/whatsapp/webhook/', whatsapp_webhook, name='whatsapp_webhook'),
+    path('api/whatsapp/webhook/', whatsapp_webhook),
 ]
+
+# 3. Esto conecta los archivos CSS y JS
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0])
