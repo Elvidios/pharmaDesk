@@ -7,7 +7,6 @@ class Servicio(models.Model):
         ('CO', 'Cosméticos'),
         ('DM', 'Dispositivos Médicos'),
         ('AL', 'Alimentos'),
-        ('VE', 'Veterinarios'),
     ]
     
     categoria = models.CharField(max_length=2, choices=CATEGORIAS)

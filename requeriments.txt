@@ -1,1 +1,8 @@
 django pandas openpyxl requests
+
+pip install pandas
+
+pip install google-generativeai
+
+
+pip install python-dotenv

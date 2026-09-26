@@ -15,9 +15,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from cotizador.views import inicio
+from cotizador.views import whatsapp_webhook 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', inicio, name='inicio'), # Esta línea conecta tu página principal
+    # Esta es la ruta exacta a la que le está apuntando tu simulador
+    path('api/whatsapp/webhook/', whatsapp_webhook, name='whatsapp_webhook'),
 ]
