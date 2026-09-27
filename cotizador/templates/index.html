@@ -35,8 +35,8 @@
                 <div class="action-header">
                     <h2>Validación de Cotizaciones (En Cola)</h2>
                     <div class="bulk-actions">
-                        <button id="btn-approve" class="btn btn-success" disabled>Aprobar Seleccionadas</button>
-                        <button id="btn-reject" class="btn btn-danger" disabled>Rechazar</button>
+                        <button type="button" class="btn btn-success" onclick="aprobarSeleccionados()">Aprobar Seleccionados</button>
+                        <button type="button" class="btn btn-danger" onclick="rechazarSeleccionados()">Rechazar</button>
                     </div>
                 </div>
 
@@ -59,7 +59,7 @@
                             {% if tickets %}
                                 {% for ticket in tickets %}
                                 <tr>
-                                    <td><input type="checkbox" class="row-checkbox"></td>
+                                    <td><input type="checkbox" class="row-checkbox" value="{{ ticket.id }}"></td>
                                     <!-- Formateamos el ID con ceros: ej. #001 -->
                                     <td>#{{ ticket.id|stringformat:"03d" }}</td> 
                                     <td>{{ ticket.numero_cliente }}</td>

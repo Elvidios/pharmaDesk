@@ -10,7 +10,12 @@ from .models import Ticket
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 
+# 1. Cargamos credenciales seguras
+load_dotenv()
+META_TOKEN = os.getenv('META_TOKEN')
+PHONE_NUMBER_ID = os.getenv('PHONE_NUMBER_ID')
 
+# 2. Función para obtener el valor de la UF desde mindicador.cl
 def obtener_valor_uf():
     try:
         # mindicador.cl no requiere API Key y es muy rápida
@@ -31,6 +36,7 @@ def obtener_valor_uf():
         print(f"Error conectando a mindicador: {e}")
         return 38500.0 # Valor de emergencia para salvar la demo
 
+# 3. Función para renderizar la página principal con los tickets pendientes
 def home(request):
     # Buscamos todos los tickets con estado 'Pendiente', ordenados del más nuevo al más viejo
     tickets_pendientes = Ticket.objects.filter(estado='Pendiente').order_by('-fecha_creacion')
@@ -38,12 +44,7 @@ def home(request):
     # Le pasamos la variable 'tickets' a tu HTML
     return render(request, 'index.html', {'tickets': tickets_pendientes})
 
-# 1. Cargamos credenciales seguras
-load_dotenv()
-META_TOKEN = os.getenv('META_TOKEN')
-PHONE_NUMBER_ID = os.getenv('PHONE_NUMBER_ID')
-
-# 2. Función para enviar WhatsApp a Meta
+# 4. Función para aprobar la cotización desde el panel de administración
 def enviar_mensaje(numero_destino, texto):
 
     url = f"https://graph.facebook.com/v17.0/{PHONE_NUMBER_ID}/messages"
@@ -69,6 +70,7 @@ def enviar_mensaje(numero_destino, texto):
     except Exception as e:
         print(f"Error enviando mensaje a Meta: {e}")
 
+# 5. Función para interpretar el mensaje del cliente usando IA
 def interpretar_mensaje_ia(texto_cliente):
     api_key = os.getenv('GEMINI_API_KEY').strip()
     
@@ -119,7 +121,7 @@ def interpretar_mensaje_ia(texto_cliente):
         print(f"Error procesando la IA: {e}")
         return {"estado": "incompleto", "pregunta_seguimiento": "No pude procesar eso. ¿Podrías indicarme si es un producto cosmético o de higiene?", "categoria": "desconocido"}
 
-# 4. Webhook Principal
+# 6. webhook de WhatsApp para recibir mensajes entrantes
 @csrf_exempt
 def whatsapp_webhook(request):
     if request.method == 'GET':
@@ -131,6 +133,7 @@ def whatsapp_webhook(request):
             data = json.loads(request.body)
             value = data.get('entry', [{}])[0].get('changes', [{}])[0].get('value', {})
             
+            # Todo el flujo debe ocurrir SÓLO si es un mensaje de texto
             if 'messages' in value:
                 mensaje = value['messages'][0]
                 numero = mensaje['from']
@@ -145,36 +148,30 @@ def whatsapp_webhook(request):
                 
                 # 2. EVALUACIÓN DE TRIAGE
                 if datos_ia.get('estado') == 'incompleto':
-                    # La IA detectó que faltan datos. Extrae la pregunta amable y la envía.
                     pregunta = datos_ia.get('pregunta_seguimiento', 'No estoy seguro de qué necesitas. ¿Podrías detallar más?')
                     enviar_mensaje(numero, pregunta)
                     print("3. Triage Activo: Solicitando más datos al cliente.")
-                    
-                    # CORTAMOS LA EJECUCIÓN AQUÍ. No avanzamos a Pandas.
                     return HttpResponse(status=200) 
                 
-            # 3. SI ESTÁ COMPLETO, CONTINUAMOS AL CÁLCULO
-            palabra_clave = datos_ia.get('categoria', 'desconocido')
-            tramite_solicitado = datos_ia.get('tramite', 'tu solicitud')
-            
-            # Aseguramos que la cantidad sea un número entero
-            try:
-                cantidad_solicitada = int(datos_ia.get('cantidad', 1))
-            except:
-                cantidad_solicitada = 1
-            
-            # Obtenemos la UF del día ANTES de entrar al CSV
-            valor_uf_hoy = obtener_valor_uf()
-            
-            # Buscamos en Pandas
-            ruta_csv = 'tarifario_bot.csv'
-            if os.path.exists(ruta_csv) and palabra_clave != 'desconocido':
-                df = pd.read_csv(ruta_csv, sep=',', encoding='utf-8')
-                df.columns = df.columns.str.strip()
+                # 3. SI ESTÁ COMPLETO, CONTINUAMOS AL CÁLCULO
+                palabra_clave = datos_ia.get('categoria', 'desconocido')
+                tramite_solicitado = datos_ia.get('tramite', 'tu solicitud')
                 
-                coincidencias = df[df['Palabras_Clave'].str.lower().str.contains(palabra_clave, na=False)]
+                try:
+                    cantidad_solicitada = int(datos_ia.get('cantidad', 1))
+                except:
+                    cantidad_solicitada = 1
                 
-                if not coincidencias.empty:
+                valor_uf_hoy = obtener_valor_uf()
+                
+                ruta_csv = 'tarifario_bot.csv'
+                if os.path.exists(ruta_csv) and palabra_clave != 'desconocido':
+                    df = pd.read_csv(ruta_csv, sep=',', encoding='utf-8')
+                    df.columns = df.columns.str.strip()
+                    
+                    coincidencias = df[df['Palabras_Clave'].str.lower().str.contains(palabra_clave, na=False)]
+                    
+                    if not coincidencias.empty:
                         respuesta_bot = f"¡Perfecto! Para {cantidad_solicitada}x *{tramite_solicitado}* de la categoría *{palabra_clave}*:\n\n"
                         
                         for _, row in coincidencias.iterrows():
@@ -182,7 +179,6 @@ def whatsapp_webhook(request):
                             precio_uf_unitario = float(row['Precio_Total_UF'])
                             rango = row['q_rango']
                             
-                            # MATEMÁTICA
                             total_uf = precio_uf_unitario * cantidad_solicitada
                             total_clp = int(total_uf * valor_uf_hoy)
                             formato_clp = f"${total_clp:,.0f}".replace(',', '.')
@@ -190,28 +186,31 @@ def whatsapp_webhook(request):
                             respuesta_bot += f"✅ *{tramite_csv}*\n📦 Escala: {rango}\n💎 Subtotal: {total_uf} UF\n💰 Total Estimado: {formato_clp} CLP\n\n"
                         
                         # ---------------- EL FRENO ----------------
-                        # Antes aquí decia: enviar_mensaje(numero, respuesta_bot)
-                        # Ahora creamos un ticket en la base de datos:
                         Ticket.objects.create(
                             numero_cliente=numero,
                             categoria=palabra_clave,
                             tramite=tramite_solicitado,
                             borrador_cotizacion=respuesta_bot
                         )
+                        
+                        # MENSAJE AUTOMÁTICO DE ESPERA (Corregido a 'numero')
+                        mensaje_espera = "⏳ *¡Datos recibidos con éxito!*\n\nSu solicitud está siendo analizada por nuestros especialistas. Le enviaremos su cotización detallada a la brevedad."
+                        enviar_mensaje(numero, mensaje_espera)
+
                         print("3. 🛑 AUTO-ENVÍO FRENADO. Ticket guardado en BD para revisión humana.")
                         # ------------------------------------------
                         
-                else:
-                    print("3. Sin coincidencias en el CSV para esa palabra.")
-                    enviar_mensaje(numero, "Entendí tu solicitud, pero no encontré tarifas exactas para esa categoría.")
-                    
+                    else:
+                        print("3. Sin coincidencias en el CSV para esa palabra.")
+                        enviar_mensaje(numero, "Entendí tu solicitud, pero no encontré tarifas exactas para esa categoría.")
+                        
             return HttpResponse(status=200)
             
         except Exception as e:
             print(f"Error procesando el webhook: {e}")
             return HttpResponse(status=500)
 
-# 5. Función para Aprobar y Enviar la Cotización
+# 7. Función para Aprobar y Enviar la Cotización
 @csrf_exempt
 def aprobar_cotizacion(request, ticket_id):
     if request.method == 'POST':
@@ -236,3 +235,17 @@ def aprobar_cotizacion(request, ticket_id):
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
             
     return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+
+# 8. Función para Rechazar y Eliminar la Cotización
+@csrf_exempt
+def rechazar_cotizacion(request, ticket_id):
+    if request.method == 'POST':
+        try:
+            # Buscamos el ticket en la base de datos y lo borramos
+            ticket = Ticket.objects.get(id=ticket_id)
+            ticket.delete()
+            return JsonResponse({'status': 'success'})
+        except Ticket.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Ticket no encontrado'}, status=404)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

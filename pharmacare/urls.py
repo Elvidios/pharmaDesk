@@ -29,6 +29,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/whatsapp/webhook/', whatsapp_webhook),
     path('api/whatsapp/aprobar/<int:ticket_id>/', views.aprobar_cotizacion, name='aprobar_cotizacion'),
+    path('api/whatsapp/rechazar/<int:ticket_id>/', views.rechazar_cotizacion, name='rechazar_cotizacion'),
 ]
 
 # 3. Esto conecta los archivos CSS y JS
