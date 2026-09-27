@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render
+from .models import Ticket
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 
 
 def obtener_valor_uf():
@@ -29,8 +32,11 @@ def obtener_valor_uf():
         return 38500.0 # Valor de emergencia para salvar la demo
 
 def home(request):
-    # Ahora Django buscará index.html dentro de la carpeta templates
-    return render(request, 'index.html')
+    # Buscamos todos los tickets con estado 'Pendiente', ordenados del más nuevo al más viejo
+    tickets_pendientes = Ticket.objects.filter(estado='Pendiente').order_by('-fecha_creacion')
+    
+    # Le pasamos la variable 'tickets' a tu HTML
+    return render(request, 'index.html', {'tickets': tickets_pendientes})
 
 # 1. Cargamos credenciales seguras
 load_dotenv()
@@ -39,26 +45,29 @@ PHONE_NUMBER_ID = os.getenv('PHONE_NUMBER_ID')
 
 # 2. Función para enviar WhatsApp a Meta
 def enviar_mensaje(numero_destino, texto):
+
     url = f"https://graph.facebook.com/v17.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {META_TOKEN}",
         "Content-Type": "application/json"
     }
+    
     payload = {
         "messaging_product": "whatsapp",
         "to": numero_destino,
         "type": "text",
         "text": {"body": texto}
     }
+    
     try:
         response = requests.post(url, headers=headers, json=payload)
         print(f"Envío a Meta status: {response.status_code}")
-        if response.status_code != 200:
-            print(f"Detalle del error de Meta: {response.text}")
+        
+        # IMPRIMIMOS SIEMPRE, sin importar si es 200 o no
+        print(f"Detalle completo de Meta: {response.text}") 
+        
     except Exception as e:
         print(f"Error enviando mensaje a Meta: {e}")
-
-import json
 
 def interpretar_mensaje_ia(texto_cliente):
     api_key = os.getenv('GEMINI_API_KEY').strip()
@@ -144,7 +153,7 @@ def whatsapp_webhook(request):
                     # CORTAMOS LA EJECUCIÓN AQUÍ. No avanzamos a Pandas.
                     return HttpResponse(status=200) 
                 
-# 3. SI ESTÁ COMPLETO, CONTINUAMOS AL CÁLCULO
+            # 3. SI ESTÁ COMPLETO, CONTINUAMOS AL CÁLCULO
             palabra_clave = datos_ia.get('categoria', 'desconocido')
             tramite_solicitado = datos_ia.get('tramite', 'tu solicitud')
             
@@ -166,24 +175,32 @@ def whatsapp_webhook(request):
                 coincidencias = df[df['Palabras_Clave'].str.lower().str.contains(palabra_clave, na=False)]
                 
                 if not coincidencias.empty:
-                    respuesta_bot = f"¡Perfecto! Para {cantidad_solicitada}x *{tramite_solicitado}* de la categoría *{palabra_clave}*:\n\n"
-                    
-                    for _, row in coincidencias.iterrows():
-                        tramite_csv = row['Tramite']
-                        precio_uf_unitario = float(row['Precio_Total_UF'])
-                        rango = row['q_rango']
+                        respuesta_bot = f"¡Perfecto! Para {cantidad_solicitada}x *{tramite_solicitado}* de la categoría *{palabra_clave}*:\n\n"
                         
-                        # MATEMÁTICA: UF unitaria * Cantidad solicitada * Valor de la UF hoy
-                        total_uf = precio_uf_unitario * cantidad_solicitada
-                        total_clp = int(total_uf * valor_uf_hoy)
+                        for _, row in coincidencias.iterrows():
+                            tramite_csv = row['Tramite']
+                            precio_uf_unitario = float(row['Precio_Total_UF'])
+                            rango = row['q_rango']
+                            
+                            # MATEMÁTICA
+                            total_uf = precio_uf_unitario * cantidad_solicitada
+                            total_clp = int(total_uf * valor_uf_hoy)
+                            formato_clp = f"${total_clp:,.0f}".replace(',', '.')
+                            
+                            respuesta_bot += f"✅ *{tramite_csv}*\n📦 Escala: {rango}\n💎 Subtotal: {total_uf} UF\n💰 Total Estimado: {formato_clp} CLP\n\n"
                         
-                        # Formateamos los pesos chilenos con puntos (ej. $1.500.000)
-                        formato_clp = f"${total_clp:,.0f}".replace(',', '.')
+                        # ---------------- EL FRENO ----------------
+                        # Antes aquí decia: enviar_mensaje(numero, respuesta_bot)
+                        # Ahora creamos un ticket en la base de datos:
+                        Ticket.objects.create(
+                            numero_cliente=numero,
+                            categoria=palabra_clave,
+                            tramite=tramite_solicitado,
+                            borrador_cotizacion=respuesta_bot
+                        )
+                        print("3. 🛑 AUTO-ENVÍO FRENADO. Ticket guardado en BD para revisión humana.")
+                        # ------------------------------------------
                         
-                        respuesta_bot += f"✅ *{tramite_csv}*\n📦 Escala: {rango}\n💎 Subtotal: {total_uf} UF\n💰 Total Estimado: {formato_clp} CLP\n\n"
-                    
-                    enviar_mensaje(numero, respuesta_bot)
-                    print("3. ¡Cotización en CLP enviada con éxito!")
                 else:
                     print("3. Sin coincidencias en el CSV para esa palabra.")
                     enviar_mensaje(numero, "Entendí tu solicitud, pero no encontré tarifas exactas para esa categoría.")
@@ -193,3 +210,29 @@ def whatsapp_webhook(request):
         except Exception as e:
             print(f"Error procesando el webhook: {e}")
             return HttpResponse(status=500)
+
+# 5. Función para Aprobar y Enviar la Cotización
+@csrf_exempt
+def aprobar_cotizacion(request, ticket_id):
+    if request.method == 'POST':
+        try:
+            # 1. Buscamos el ticket específico en la base de datos
+            ticket = get_object_or_404(Ticket, id=ticket_id)
+            
+            # 2. Reutilizamos tu función para enviar el WhatsApp al cliente
+            # Enviamos el borrador que estaba guardado en el ticket
+            enviar_mensaje(ticket.numero_cliente, ticket.borrador_cotizacion)
+            print(f"4. 🚀 COTIZACIÓN ENVIADA AL CLIENTE: {ticket.numero_cliente}")
+            
+            # 3. Cambiamos el estado para que desaparezca de la bandeja "En Cola"
+            ticket.estado = 'Aprobado'
+            ticket.save()
+            
+            # 4. Le avisamos a tu JavaScript que todo salió perfecto
+            return JsonResponse({'status': 'success', 'message': 'Cotización enviada correctamente'})
+            
+        except Exception as e:
+            print(f"Error aprobando el ticket: {e}")
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)

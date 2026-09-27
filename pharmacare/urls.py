@@ -17,6 +17,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
+from cotizador import views
 
 # 1. Asegúrate de importar la función 'home' además del webhook
 from cotizador.views import whatsapp_webhook, home 
@@ -27,6 +28,7 @@ urlpatterns = [
     
     path('admin/', admin.site.urls),
     path('api/whatsapp/webhook/', whatsapp_webhook),
+    path('api/whatsapp/aprobar/<int:ticket_id>/', views.aprobar_cotizacion, name='aprobar_cotizacion'),
 ]
 
 # 3. Esto conecta los archivos CSS y JS

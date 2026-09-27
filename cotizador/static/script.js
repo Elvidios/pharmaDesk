@@ -1,60 +1,68 @@
-// Lógica para Selección Múltiple y Botones de Acción
-const selectAllCheckbox = document.getElementById('selectAll');
-const rowCheckboxes = document.querySelectorAll('.row-checkbox');
-const btnApprove = document.getElementById('btn-approve');
-const btnReject = document.getElementById('btn-reject');
+let currentTicketId = null;
 
-// Función para habilitar/deshabilitar botones si hay algo seleccionado
-function updateActionButtons() {
-    const anyChecked = Array.from(rowCheckboxes).some(cb => cb.checked);
-    btnApprove.disabled = !anyChecked;
-    btnReject.disabled = !anyChecked;
-}
-
-// Checkbox Maestro (Seleccionar todo)
-selectAllCheckbox.addEventListener('change', function() {
-    rowCheckboxes.forEach(cb => {
-        cb.checked = selectAllCheckbox.checked;
-    });
-    updateActionButtons();
-});
-
-// Checkboxes individuales
-rowCheckboxes.forEach(cb => {
-    cb.addEventListener('change', function() {
-        // Si desmarcas uno, el maestro se desmarca
-        if (!this.checked) {
-            selectAllCheckbox.checked = false;
-        }
-        // Si marcas todos manualmente, el maestro se marca
-        if (Array.from(rowCheckboxes).every(c => c.checked)) {
-            selectAllCheckbox.checked = true;
-        }
-        updateActionButtons();
-    });
-});
-
-// Lógica del Panel de Vista Previa (Slide-out)
-const modal = document.getElementById('previewModal');
-
-function openPreview(id, client, service, value) {
-    // Llenar datos dinámicos en el panel
-    document.getElementById('modalId').textContent = id;
-    document.getElementById('modalClient').textContent = client;
-    document.getElementById('modalService').textContent = service;
-    document.getElementById('modalValue').textContent = value;
+function openPreview(realId, displayId, cliente, tramite, borrador) {
+    currentTicketId = realId; // Guardamos el ID real para la aprobación
+    document.getElementById('modalId').innerText = displayId;
+    document.getElementById('modalClient').innerText = cliente;
+    document.getElementById('modalService').innerText = tramite;
+    document.getElementById('modalValue').innerText = borrador;
     
-    // Mostrar el modal
-    modal.style.display = 'flex';
+    document.getElementById('previewModal').style.display = 'flex'; 
 }
 
 function closePreview() {
-    modal.style.display = 'none';
+    document.getElementById('previewModal').style.display = 'none';
 }
 
-// Cerrar al hacer clic fuera del panel derecho
-modal.addEventListener('click', function(e) {
-    if (e.target === modal) {
-        closePreview();
+function aprobarCotizacion() {
+    if (!currentTicketId) return;
+
+    // Cambiar el texto del botón a "Enviando..."
+    const btn = document.getElementById('btn-approve-single');
+    const originalText = btn.innerText;
+    btn.innerText = "Enviando...";
+    btn.disabled = true;
+
+    // Hacer una petición AJAX a Django
+    fetch(`/api/whatsapp/aprobar/${currentTicketId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'), // Necesario para peticiones POST en Django
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('¡Cotización aprobada y enviada al cliente!');
+            closePreview();
+            location.reload(); // Recargar la página para actualizar la tabla
+        } else {
+            alert('Error: ' + data.message);
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Hubo un error al procesar la aprobación.');
+        btn.innerText = originalText;
+        btn.disabled = false;
+    });
+}
+
+// Función auxiliar para obtener el token CSRF de Django
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
     }
-});
+    return cookieValue;
+}
