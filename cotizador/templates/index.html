@@ -4,31 +4,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | PharmaCare Admin</title>
+    <title>Dashboard | PharmaCare</title>
     <link rel="stylesheet" href="{% static 'styles.css' %}">
 </head>
 <body>
     <div class="dashboard-container">
         <!-- Barra Lateral -->
         <aside class="sidebar">
-            <div class="logo">Pharmacare</div>
+            <div class="logo">Pharmacare SmartDesk</div>
             <nav class="menu">
-                <a href="#" class="active">Panel Principal</a>
-                <a href="#">Cotizaciones ({{ tickets|length }})</a> <!-- Contador dinámico -->
-                <a href="#">Historial Aprobadas</a>
-                <a href="#">Actualizar Tarifario</a>
+                <a href="#" class="active">Cotizaciones</a>
+                    {% if tickets|length > 0 %}
+                        <span class="badge">{{ tickets|length }}</span>
+                    {% endif %}                
+                <a href="#" class="menu-item-counter">
+                    <span>Proximamente</span>
+                </a>
             </nav>
         </aside>
 
         <!-- Contenido Principal -->
         <main class="main-content">
             <header class="topbar">
-                <div class="search-bar">
-                    <input type="text" placeholder="🔍 Buscar por número o trámite...">
-                </div>
-                <div class="user-info">
-                    Admin | <a href="#">Cerrar Sesión</a>
-                </div>
+                <h1>Bienvenido al Panel de Control</h1>
             </header>
 
             <section class="content">
@@ -96,8 +94,8 @@
         </main>
     </div>
 
-    <!-- Panel Lateral Deslizante (Vista Previa) -->
-    <div id="previewModal" class="modal-overlay" style="display: none;"> <!-- Asegúrate de que inicie oculto por CSS/JS -->
+<!-- Panel Lateral Deslizante (Vista Previa) -->
+    <div id="previewModal" class="modal-overlay" style="display: none;">
         <div class="modal-slide">
             <div class="modal-header">
                 <h3>Detalles de Solicitud #<span id="modalId"></span></h3>
@@ -108,14 +106,19 @@
                 <p><strong>Trámite:</strong> <span id="modalService"></span></p>
                 
                 <div class="document-preview-area" style="background-color: #f4f6f9; padding: 15px; border-radius: 5px; margin-top: 15px;">
-                    <p style="margin-bottom: 10px; color: #333;"><strong>Borrador generado por IA:</strong></p>
-                    <!-- Aquí inyectaremos el texto generado (CLP, UF, etc.) respetando saltos de línea -->
-                    <pre id="modalValue" style="white-space: pre-wrap; font-family: monospace; font-size: 14px; color: #2c3e50; border-left: 4px solid #3498db; padding-left: 10px;"></pre>
+                    <p style="margin-bottom: 10px; color: #333;"><strong>Borrador generado por IA (Editable):</strong></p>
+                    
+                    <!-- CAMBIO CLAVE: De <pre> a <textarea> -->
+                    <textarea id="modalValue" style="width: 100%; height: 250px; font-family: monospace; font-size: 14px; color: #2c3e50; border: 1px solid #ccc; border-left: 4px solid #3498db; padding: 10px; border-radius: 4px; resize: vertical; box-sizing: border-box;"></textarea>
                 </div>
             </div>
+            
             <div class="modal-footer">
-                <button id="btn-approve-single" class="btn btn-success" onclick="aprobarCotizacion()">Aprobar Individual</button>
-                <button class="btn btn-warning">Solicitar Cambios</button>
+                <!-- Botón de aprobar conectado a JS -->
+                <button id="btn-approve-single" class="btn btn-success" onclick="aprobarCotizacion()">Aprobar y Enviar</button>
+                
+                <!-- Reemplazamos el botón estático por el botón de rechazar que creamos -->
+                <button id="btn-reject-single" class="btn btn-danger" onclick="rechazarCotizacion()">Rechazar y Eliminar</button>
             </div>
         </div>
     </div>

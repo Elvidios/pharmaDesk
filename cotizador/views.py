@@ -99,7 +99,8 @@ def interpretar_mensaje_ia(texto_cliente):
     }}
     """
     
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={api_key}"
+    # Usando exactamente la ruta de tu CURL: gemini-flash-latest
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
     
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     
@@ -115,12 +116,20 @@ def interpretar_mensaje_ia(texto_cliente):
                 
             return json.loads(respuesta_texto)
         else:
-            return {"estado": "incompleto", "pregunta_seguimiento": "Hubo un error de conexión. ¿Podrías repetirme tu solicitud de forma más detallada?", "categoria": "desconocido"}
+            # 2. EL GRITÓN HTTP: Ahora sabremos si es un 400, 429 o 500
+            print(f"🚨 ERROR HTTP DE GEMINI: {response.status_code}")
+            print(f"Detalle del error: {response.text}")
+            
+            return {"estado": "incompleto", "pregunta_seguimiento": "Nuestros sistemas están experimentando alta demanda. ¿Podrías intentar nuevamente?", "categoria": "desconocido"}
             
     except Exception as e:
-        print(f"Error procesando la IA: {e}")
-        return {"estado": "incompleto", "pregunta_seguimiento": "No pude procesar eso. ¿Podrías indicarme si es un producto cosmético o de higiene?", "categoria": "desconocido"}
-
+            print(f"🚨 ERROR INTERNO (PYTHON): {e}") 
+            
+            return {
+                "estado": "incompleto", 
+                "pregunta_seguimiento": "Hubo un error de conexión interno. ¿Podrías repetirme tu solicitud?",
+                "categoria": "desconocido"
+            }
 # 6. webhook de WhatsApp para recibir mensajes entrantes
 @csrf_exempt
 def whatsapp_webhook(request):
